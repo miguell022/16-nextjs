@@ -29,7 +29,7 @@ export default async function EditConsolePage({
   const consoleId = Number(id);
 
   if (!Number.isInteger(consoleId) || consoleId <= 0) {
-    notFound();
+    return notFound();
   }
 
   const consoleItem = await prisma.console.findUnique({
@@ -37,8 +37,10 @@ export default async function EditConsolePage({
   });
 
   if (!consoleItem) {
-    notFound();
+    return notFound();
   }
+
+  const existingConsole = consoleItem;
 
   async function updateConsole(formData: FormData) {
     "use server";
@@ -47,7 +49,7 @@ export default async function EditConsolePage({
     const manufacturer = formData.get("manufacturer") as string;
     const releaseDate = formData.get("releaseDate") as string;
     const description = formData.get("description") as string;
-    const image = (formData.get("image") as string) || consoleItem.image;
+    const image = (formData.get("image") as string) || existingConsole.image;
 
     await prisma.console.update({
       where: { id: consoleId },
@@ -67,7 +69,7 @@ export default async function EditConsolePage({
   return (
     <SideBar currentPath="/consoles">
       <form action={updateConsole} className="space-y-4 max-w-5xl p-4 mx-auto mt-16">
-        <EditConsoleForm consoleItem={consoleItem} />
+        <EditConsoleForm consoleItem={existingConsole} />
         <button className="btn btn-primary" type="submit">
           Guardar cambios
         </button>
