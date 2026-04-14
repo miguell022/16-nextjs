@@ -1,45 +1,43 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
+import { consoleSchema } from "@/src/lib/validations/console";
 
 const prisma = new PrismaClient({
+  // El adapter permite que Prisma use la conexion PostgreSQL alojada en Neon.
   adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL! }),
 });
 
 export async function POST(request: Request) {
   try {
-    // Recibe el JSON enviado desde AddConsoleForm.
     const body = await request.json();
+    // Segunda capa: la API valida aunque el frontend ya haya validado.
+    const parsed = consoleSchema.safeParse(body);
 
-    // Normaliza el payload antes de validar y guardar.
-    const name = String(body.name || "").trim();
-    const manufacturer = String(body.manufacturer || "").trim();
-    const description = String(body.description || "").trim();
-    const releaseDate = String(body.releaseDate || "").trim();
-    const image = String(body.image || "no-image.png").trim() || "no-image.png";
-
-    if (!name || !manufacturer || !description || !releaseDate) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Todos los campos obligatorios deben estar completos" },
+        { error: parsed.error.issues[0]?.message || "Datos invalidos" },
         { status: 400 }
       );
     }
 
-    // Prisma crea la consola en Neon/Postgres.
+    const data = parsed.data;
+
+    // Prisma recibe datos ya validados y normalizados por zod.
+    // Aqui Prisma crea la consola en la tabla console dentro de Neon.
     const consoleItem = await prisma.console.create({
       data: {
-        name,
-        manufacturer,
-        description,
-        releaseDate: new Date(releaseDate),
-        image,
+        name: data.name,
+        manufacturer: data.manufacturer,
+        description: data.description,
+        releaseDate: new Date(data.releaseDate),
+        image: data.image || "no-image.png",
       },
       select: { id: true, name: true },
     });
 
     return NextResponse.json({ ok: true, console: consoleItem }, { status: 201 });
   } catch (error: unknown) {
-    // P2002 aparece cuando se repite un valor unico, aqui el nombre.
     if (
       typeof error === "object" &&
       error !== null &&

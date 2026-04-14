@@ -2,6 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import Swal from "sweetalert2";
+import { consoleSchema } from "@/src/lib/validations/console";
 
 export default function AddConsoleForm() {
   const router = useRouter();
@@ -16,7 +18,6 @@ export default function AddConsoleForm() {
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
@@ -46,12 +47,12 @@ export default function AddConsoleForm() {
     e.preventDefault();
     setLoading(true);
     setError("");
-    setSuccess("");
 
     try {
       let image = form.image;
 
       if (selectedFile) {
+        // Primero subimos la imagen y guardamos solo la URL resultante.
         const uploadData = new FormData();
         uploadData.append("file", selectedFile);
         uploadData.append("folder", "consoles");
@@ -65,25 +66,41 @@ export default function AddConsoleForm() {
 
         if (!uploadRes.ok) {
           setError(uploadJson.error || "No se pudo subir la imagen");
-          setLoading(false);
+          await Swal.fire({
+            icon: "error",
+            title: "No se pudo subir la imagen",
+            text: uploadJson.error || "No se pudo subir la imagen",
+            confirmButtonText: "Entendido",
+          });
           return;
         }
 
         image = uploadJson.url;
-
       }
 
-      // Envia los datos a la ruta API que realmente crea la consola en Prisma.
+      // Primera capa: validacion en cliente antes de llamar a la API.
+      const parsed = consoleSchema.safeParse({ ...form, image });
+
+      if (!parsed.success) {
+        await Swal.fire({
+          icon: "error",
+          title: "Formulario invalido",
+          text: parsed.error.issues[0]?.message || "Revisa los campos de la consola",
+          confirmButtonText: "Entendido",
+        });
+        return;
+      }
+
+      // El formulario envia la consola al endpoint API; la API es quien guarda en Neon.
       const res = await fetch("/api/consoles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, image }),
+        body: JSON.stringify(parsed.data),
       });
 
       const data = await res.json();
 
       if (res.ok) {
-        setSuccess("Consola agregada correctamente");
         setForm({
           name: "",
           manufacturer: "",
@@ -93,23 +110,43 @@ export default function AddConsoleForm() {
         });
         setSelectedFile(null);
         setPreview(null);
-        // Cuando sale bien, volvemos al listado para ver la consola creada.
+
+        await Swal.fire({
+          icon: "success",
+          title: "Consola agregada",
+          text: "La consola se creo correctamente",
+          confirmButtonText: "Aceptar",
+        });
+
         router.push("/consoles");
         router.refresh();
       } else {
         setError(data.error || "No se pudo agregar la consola");
+        await Swal.fire({
+          icon: "error",
+          title: "No se pudo agregar",
+          text: data.error || "No se pudo agregar la consola",
+          confirmButtonText: "Entendido",
+        });
       }
     } catch {
       setError("Error de red");
+      await Swal.fire({
+        icon: "error",
+        title: "Error de red",
+        text: "Ocurrio un problema al conectar con el servidor",
+        confirmButtonText: "Entendido",
+      });
+    } finally {
+      setLoading(false);
     }
-
-    setLoading(false);
   };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-[70vh]">
       <form
         onSubmit={handleSubmit}
+        noValidate
         className="bg-base-200 p-8 rounded-lg shadow-md w-full max-w-md space-y-4"
       >
         <h2 className="text-2xl font-bold mb-4 text-center">Agregar Consola</h2>
@@ -141,7 +178,6 @@ export default function AddConsoleForm() {
           onChange={handleChange}
           className="input input-bordered w-full"
           placeholder="Nombre"
-          required
         />
         <input
           name="manufacturer"
@@ -149,7 +185,6 @@ export default function AddConsoleForm() {
           onChange={handleChange}
           className="input input-bordered w-full"
           placeholder="Fabricante"
-          required
         />
         <input
           name="releaseDate"
@@ -157,7 +192,6 @@ export default function AddConsoleForm() {
           onChange={handleChange}
           className="input input-bordered w-full"
           type="date"
-          required
         />
         <textarea
           name="description"
@@ -165,7 +199,6 @@ export default function AddConsoleForm() {
           onChange={handleChange}
           className="textarea textarea-bordered w-full"
           placeholder="Descripcion"
-          required
         />
         <button
           type="submit"
@@ -175,7 +208,6 @@ export default function AddConsoleForm() {
           {loading ? "Agregando..." : "Agregar"}
         </button>
         {error && <div className="text-red-500 text-center mt-2">{error}</div>}
-        {success && <div className="text-green-500 text-center mt-2">{success}</div>}
       </form>
     </div>
   );

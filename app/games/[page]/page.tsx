@@ -8,13 +8,21 @@ import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import Paginator from "@/components/paginator";
 
-export default async function GamesPage({ params }: { params: Promise<{ page: string }> }) {
+export default async function GamesPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ page: string }>;
+  searchParams: Promise<{ search?: string; console?: string }>;
+}) {
   const { page: pageParam } = await params;
+  const resolvedSearchParams = await searchParams;
   const page = Number(pageParam) > 0 ? Number(pageParam) : 1;
   const pageSize = 10;
   const skip = (page - 1) * pageSize;
+  const search = String(resolvedSearchParams.search || "").trim();
+  const selectedConsole = String(resolvedSearchParams.console || "").trim();
 
-  // Verifica usuario autenticado
   const user = await stackServerApp.getUser();
   if (!user) {
     redirect("/");
@@ -24,26 +32,59 @@ export default async function GamesPage({ params }: { params: Promise<{ page: st
     adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL! }),
   });
 
-  const [games, total] = await Promise.all([
+  const where = {
+    ...(search
+      ? {
+          title: {
+            contains: search,
+            mode: "insensitive" as const,
+          },
+        }
+      : {}),
+    ...(selectedConsole
+      ? {
+          console: {
+            name: selectedConsole,
+          },
+        }
+      : {}),
+  };
+
+  const [games, total, consoles] = await Promise.all([
     prisma.games.findMany({
-      orderBy: { id: "asc" },
+      orderBy: { id: "desc" },
       include: { console: true },
+      where,
       skip,
       take: pageSize,
     }),
-    prisma.games.count(),
+    prisma.games.count({ where }),
+    prisma.console.findMany({
+      select: { name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  // Logs para depuración
-  console.log("Página:", page);
-  console.log("Juegos:", games.map((g: any) => g.id));
-
   return (
-    <SideBar currentPath={"/games"}>
-      <GamesInfo games={games} />
-      <Paginator currentPage={page} totalPages={totalPages} baseUrl="/games" cleanUrl />
+    <SideBar currentPath="/games">
+      <GamesInfo
+        games={games}
+        consoles={consoles}
+        initialSearch={search}
+        initialConsole={selectedConsole}
+      />
+      <Paginator
+        currentPage={page}
+        totalPages={totalPages}
+        baseUrl="/games"
+        cleanUrl
+        query={{
+          ...(search ? { search } : {}),
+          ...(selectedConsole ? { console: selectedConsole } : {}),
+        }}
+      />
     </SideBar>
   );
 }

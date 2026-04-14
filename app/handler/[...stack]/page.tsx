@@ -6,7 +6,7 @@ export default function Handler() {
     <div className="bg-base-200 min-h-screen flex flex-col gap-2 items-center justify-center">
       <div className="hero min-h-screen bg-[url('/img/bg-home.png')] px-4">
         <div className="hero-overlay"></div>
-        <div className="hero-content bg-base-200 rounded backdrop-blur-md flex flex-col text-neutral-content text-center w-full max-w-4xl">
+        <div className="hero-content bg-base-200 rounded backdrop-blur-md flex flex-col text-neutral-content text-center w-120 max-w-4xl">
           <StackHandler fullPage={false} />
           <BackHomebutton />
         </div>

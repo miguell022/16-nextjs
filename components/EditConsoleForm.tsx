@@ -1,6 +1,10 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
+import Swal from "sweetalert2";
+import { updateConsoleSchema } from "@/src/lib/validations/console";
 
 type Console = {
   id: number;
@@ -12,6 +16,7 @@ type Console = {
 };
 
 export default function EditConsoleForm({ consoleItem }: { consoleItem: Console }) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [imageUrl, setImageUrl] = useState<string>(
@@ -20,6 +25,7 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
       : consoleItem.image
   );
   const [uploading, setUploading] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const releaseDateValue =
     typeof consoleItem.releaseDate === "string"
@@ -68,14 +74,92 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
       setImageUrl(data.url);
     } catch (error) {
       console.error(error);
-      alert("Error al subir la imagen");
+      await Swal.fire({
+        icon: "error",
+        title: "No se pudo subir la imagen",
+        text: "Intenta nuevamente con otra imagen o formato",
+        confirmButtonText: "Entendido",
+      });
     } finally {
       setUploading(false);
     }
   };
 
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setLoading(true);
+
+    // Armamos un payload plano a partir del formulario para validarlo con zod.
+    const formData = new FormData(e.currentTarget);
+    const payload = {
+      name: String(formData.get("name") || ""),
+      manufacturer: String(formData.get("manufacturer") || ""),
+      releaseDate: String(formData.get("releaseDate") || ""),
+      description: String(formData.get("description") || ""),
+      image: imageUrl,
+    };
+
+    try {
+      // Validamos el payload del formulario antes de enviarlo al endpoint PUT.
+      const parsed = updateConsoleSchema.safeParse(payload);
+
+      if (!parsed.success) {
+        await Swal.fire({
+          icon: "error",
+          title: "Formulario invalido",
+          text: parsed.error.issues[0]?.message || "Revisa los campos de la consola",
+          confirmButtonText: "Entendido",
+        });
+        return;
+      }
+
+      // En edicion enviamos el payload al endpoint PUT y la API actualiza la BD.
+      const res = await fetch(`/api/consoles/${consoleItem.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(parsed.data),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        await Swal.fire({
+          icon: "error",
+          title: "No se pudo actualizar",
+          text: data.error || "No se pudo actualizar la consola",
+          confirmButtonText: "Entendido",
+        });
+        return;
+      }
+
+      await Swal.fire({
+        icon: "success",
+        title: "Consola actualizada",
+        text: "Los cambios se guardaron correctamente",
+        confirmButtonText: "Aceptar",
+      });
+
+      router.push("/consoles");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      await Swal.fire({
+        icon: "error",
+        title: "Error de red",
+        text: "Ocurrio un problema al conectar con el servidor",
+        confirmButtonText: "Entendido",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-[70vh]">
+    <form
+      onSubmit={handleSubmit}
+      noValidate
+      className="flex flex-col items-center justify-center min-h-[70vh] space-y-4"
+    >
       <input type="hidden" name="image" value={imageUrl} />
 
       <div className="bg-base-200 rounded-xl shadow-2xl p-6 flex gap-12 items-center w-full max-w-5xl border border-base-300">
@@ -117,7 +201,6 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
               className="input input-bordered w-full"
               name="name"
               defaultValue={consoleItem.name}
-              required
             />
           </div>
 
@@ -127,7 +210,6 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
               className="input input-bordered w-full"
               name="manufacturer"
               defaultValue={consoleItem.manufacturer}
-              required
             />
           </div>
 
@@ -138,7 +220,6 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
               name="releaseDate"
               type="date"
               defaultValue={releaseDateValue}
-              required
             />
           </div>
 
@@ -148,11 +229,19 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
               className="textarea textarea-bordered w-full min-h-32"
               name="description"
               defaultValue={consoleItem.description}
-              required
             />
           </div>
         </div>
       </div>
-    </div>
+
+      <div className="flex items-center gap-3">
+        <button className="btn btn-primary" type="submit" disabled={loading || uploading}>
+          {loading ? "Guardando..." : "Guardar cambios"}
+        </button>
+        <Link href="/consoles" className="btn btn-ghost">
+          Cancelar
+        </Link>
+      </div>
+    </form>
   );
 }

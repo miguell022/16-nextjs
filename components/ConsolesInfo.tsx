@@ -109,15 +109,15 @@ export default function ConsolesInfo({ consoles }: { consoles: ConsoleItem[] }) 
       </div>
 
       <div className="overflow-x-auto mt-8">
-        <table className="table w-full min-w-[760px]">
+        <table className="table w-full min-w-[640px] md:min-w-[760px]">
           <thead>
             <tr>
               <th>img</th>
               <th>ID</th>
               <th>Nombre</th>
-              <th>Fabricante</th>
-              <th>Lanzamiento</th>
-              <th>Juegos</th>
+              <th className="hidden md:table-cell">Fabricante</th>
+              <th className="hidden md:table-cell">Lanzamiento</th>
+              <th className="hidden md:table-cell">Juegos</th>
               <th className="text-center align-middle">Actions</th>
             </tr>
           </thead>
@@ -137,9 +137,9 @@ export default function ConsolesInfo({ consoles }: { consoles: ConsoleItem[] }) 
                 </td>
                 <td>{consoleItem.id}</td>
                 <td>{consoleItem.name}</td>
-                <td>{consoleItem.manufacturer}</td>
-                <td>{new Date(consoleItem.releaseDate).toLocaleDateString()}</td>
-                <td>{consoleItem._count?.games ?? 0}</td>
+                <td className="hidden md:table-cell">{consoleItem.manufacturer}</td>
+                <td className="hidden md:table-cell">{new Date(consoleItem.releaseDate).toLocaleDateString()}</td>
+                <td className="hidden md:table-cell">{consoleItem._count?.games ?? 0}</td>
                 <td className="align-middle text-center">
                   <div className="flex h-10 items-center justify-center gap-1 sm:gap-2">
                     <button

@@ -1,50 +1,30 @@
 import { NextResponse } from "next/server";
 import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
+import { gameSchema } from "@/src/lib/validations/game";
 
 const prisma = new PrismaClient({
+  // El adapter conecta Prisma con tu base de datos PostgreSQL en Neon usando DATABASE_URL.
   adapter: new PrismaNeon({ connectionString: process.env.DATABASE_URL! }),
 });
 
 export async function POST(request: Request) {
   try {
-    // Lee los datos enviados desde el formulario cliente.
     const body = await request.json();
+    // Segunda capa: la API vuelve a validar aunque el frontend ya haya validado.
+    const parsed = gameSchema.safeParse(body);
 
-    // Normaliza el payload para validar y guardar tipos correctos en Prisma.
-    const title = String(body.title || "").trim();
-    const developer = String(body.developer || "").trim();
-    const genre = String(body.genre || "").trim();
-    const description = String(body.description || "").trim();
-    const cover = String(body.cover || "no-image.png").trim() || "no-image.png";
-    const releaseDate = String(body.releaseDate || "").trim();
-    const price = Number(body.price);
-    const console_id = Number(body.console_id);
-
-    if (!title || !developer || !genre || !description || !releaseDate) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Todos los campos obligatorios deben estar completos" },
+        { error: parsed.error.issues[0]?.message || "Datos invalidos" },
         { status: 400 }
       );
     }
 
-    if (!Number.isFinite(price) || price < 0) {
-      return NextResponse.json(
-        { error: "El precio no es valido" },
-        { status: 400 }
-      );
-    }
+    const data = parsed.data;
 
-    if (!Number.isInteger(console_id) || console_id <= 0) {
-      return NextResponse.json(
-        { error: "Debes seleccionar una consola valida" },
-        { status: 400 }
-      );
-    }
-
-    // Antes de crear el juego, comprobamos que la consola exista.
     const consoleExists = await prisma.console.findUnique({
-      where: { id: console_id },
+      where: { id: data.console_id },
       select: { id: true },
     });
 
@@ -55,24 +35,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Si todo es valido, Prisma inserta el nuevo juego en Neon/Postgres.
+    // Aqui Prisma inserta el nuevo juego en la tabla Games de Neon.
     const game = await prisma.games.create({
       data: {
-        title,
-        developer,
-        genre,
-        description,
-        cover,
-        releaseDate: new Date(releaseDate),
-        price,
-        console_id,
+        title: data.title,
+        developer: data.developer,
+        genre: data.genre,
+        description: data.description,
+        cover: data.cover || "no-image.png",
+        releaseDate: new Date(data.releaseDate),
+        price: data.price,
+        console_id: data.console_id,
       },
       select: { id: true, title: true },
     });
 
     return NextResponse.json({ ok: true, game }, { status: 201 });
   } catch (error: unknown) {
-    // P2002 = violacion de unique, en este caso titulo repetido.
     if (
       typeof error === "object" &&
       error !== null &&

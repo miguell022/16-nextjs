@@ -30,7 +30,7 @@ export default function SideBar({ currentPath = "/dashboard",children,}: { curre
                     </div>
                 </nav>
                 {/* Aqui se renderiza el contenido de cada pagina dentro del layout. */}
-                <div className="p-4 pt-16 pb-8">{children}</div>
+                <div className="px-2 pt-16 pb-8 sm:p-4 sm:pt-16 sm:pb-8">{children}</div>
             </div>
 
             <div className="drawer-side is-drawer-close:overflow-visible">

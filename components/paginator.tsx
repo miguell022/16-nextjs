@@ -3,21 +3,35 @@ import Link from "next/link";
 type PaginatorProps = {
   currentPage: number;
   totalPages: number;
-  baseUrl?: string; // Ejemplo: '/games' o '/consoles'
-  cleanUrl?: boolean; // Si es true, la URL será limpia: '/games/1'
+  baseUrl?: string;
+  cleanUrl?: boolean;
+  query?: Record<string, string>;
 };
 
-export default function Paginator({ currentPage, totalPages, baseUrl = "", cleanUrl = false }: PaginatorProps) {
+export default function Paginator({
+  currentPage,
+  totalPages,
+  baseUrl = "",
+  cleanUrl = false,
+  query = {},
+}: PaginatorProps) {
   if (totalPages <= 1) return null;
 
   return (
-    // Genera un boton por pagina usando rutas limpias o query params segun la configuracion.
     <div className="mt-4 flex flex-wrap justify-center gap-2">
       {Array.from({ length: totalPages }, (_, i) => {
         const page = i + 1;
+        const params = new URLSearchParams(query);
+
+        if (!cleanUrl) {
+          params.set("page", String(page));
+        }
+
+        const queryString = params.toString();
         const href = cleanUrl
-          ? `${baseUrl}/${page}`
-          : `${baseUrl}?page=${page}`;
+          ? `${baseUrl}/${page}${queryString ? `?${queryString}` : ""}`
+          : `${baseUrl}${queryString ? `?${queryString}` : ""}`;
+
         return (
           <Link
             key={page}
