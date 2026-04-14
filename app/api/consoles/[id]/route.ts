@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { updateConsoleSchema } from "@/src/lib/validations/console";
+import { deleteManagedAsset } from "@/src/lib/blob";
 import { stackServerApp } from "@/stack/server";
 
 const prisma = new PrismaClient({
@@ -27,9 +28,25 @@ export async function DELETE(
   }
 
   try {
+    const existingConsole = await prisma.console.findUnique({
+      where: { id },
+      select: { image: true },
+    });
+
     // Elimina solo la consola cuyo id llega en la URL /api/consoles/[id].
     // Aqui Prisma elimina la consola directamente en la base de datos.
     await prisma.console.delete({ where: { id } });
+
+    const previousImage = existingConsole?.image;
+
+    if (previousImage) {
+      try {
+        await deleteManagedAsset(previousImage);
+      } catch (deleteError) {
+        console.error("[API] No se pudo borrar la imagen de la consola:", deleteError);
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[API] Error al eliminar consola:", error);

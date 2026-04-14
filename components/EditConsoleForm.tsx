@@ -35,6 +35,8 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
   const currentImage =
     !imageUrl || imageUrl === "no-image.png"
       ? "/img/no-image.png"
+      : imageUrl.startsWith("http://") || imageUrl.startsWith("https://")
+        ? imageUrl
       : imageUrl.startsWith("/img/")
         ? imageUrl
         : `/img/consoles/${imageUrl}`;
@@ -59,6 +61,13 @@ export default function EditConsoleForm({ consoleItem }: { consoleItem: Console 
       const uploadData = new FormData();
       uploadData.append("file", file);
       uploadData.append("folder", "consoles");
+      if (
+        imageUrl.startsWith("/img/") ||
+        imageUrl.startsWith("http://") ||
+        imageUrl.startsWith("https://")
+      ) {
+        uploadData.append("previousUrl", imageUrl);
+      }
 
       const res = await fetch("/api/upload", {
         method: "POST",

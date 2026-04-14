@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { updateGameSchema } from "@/src/lib/validations/game";
+import { deleteManagedAsset } from "@/src/lib/blob";
 import { stackServerApp } from "@/stack/server";
 
 const prisma = new PrismaClient({
@@ -26,8 +27,24 @@ export async function DELETE(
   }
 
   try {
+    const existingGame = await prisma.games.findUnique({
+      where: { id },
+      select: { cover: true },
+    });
+
     // Aqui Prisma elimina el juego directamente en la base de datos.
     await prisma.games.delete({ where: { id } });
+
+    const previousCover = existingGame?.cover;
+
+    if (previousCover) {
+      try {
+        await deleteManagedAsset(previousCover);
+      } catch (deleteError) {
+        console.error("[API] No se pudo borrar la portada del juego:", deleteError);
+      }
+    }
+
     return NextResponse.json({ ok: true });
   } catch (error) {
     console.error("[API] Error al eliminar:", error);

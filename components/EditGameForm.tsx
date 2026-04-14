@@ -39,6 +39,8 @@ export default function EditGameForm({
   const currentImage =
     !coverUrl || coverUrl === "no-image.png"
       ? "/img/no-image.png"
+      : coverUrl.startsWith("http://") || coverUrl.startsWith("https://")
+        ? coverUrl
       : coverUrl.startsWith("/img/")
         ? coverUrl
         : `/img/games/${coverUrl}`;
@@ -59,6 +61,13 @@ export default function EditGameForm({
       const uploadData = new FormData();
       uploadData.append("file", file);
       uploadData.append("folder", "games");
+      if (
+        coverUrl.startsWith("/img/") ||
+        coverUrl.startsWith("http://") ||
+        coverUrl.startsWith("https://")
+      ) {
+        uploadData.append("previousUrl", coverUrl);
+      }
 
       const res = await fetch("/api/upload", {
         method: "POST",
