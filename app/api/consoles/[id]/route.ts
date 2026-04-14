@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { updateConsoleSchema } from "@/src/lib/validations/console";
+import { stackServerApp } from "@/stack/server";
 
 const prisma = new PrismaClient({
   // Prisma usa este adapter para ejecutar updates/deletes en Neon.
@@ -12,6 +13,11 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await stackServerApp.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   // En Next 16 el parametro dinamico puede llegar como Promise.
   const { id: rawId } = await params;
   const id = Number(rawId);
@@ -38,6 +44,11 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await stackServerApp.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   const { id: rawId } = await params;
   const id = Number(rawId);
 

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { consoleSchema } from "@/src/lib/validations/console";
+import { stackServerApp } from "@/stack/server";
 
 const prisma = new PrismaClient({
   // El adapter permite que Prisma use la conexion PostgreSQL alojada en Neon.
@@ -10,6 +11,11 @@ const prisma = new PrismaClient({
 
 export async function POST(request: Request) {
   try {
+    const user = await stackServerApp.getUser();
+    if (!user) {
+      return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+    }
+
     const body = await request.json();
     // Segunda capa: la API valida aunque el frontend ya haya validado.
     const parsed = consoleSchema.safeParse(body);

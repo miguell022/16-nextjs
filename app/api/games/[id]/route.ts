@@ -1,7 +1,8 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { PrismaClient } from "@/src/generated/prisma";
 import { PrismaNeon } from "@prisma/adapter-neon";
 import { updateGameSchema } from "@/src/lib/validations/game";
+import { stackServerApp } from "@/stack/server";
 
 const prisma = new PrismaClient({
   // Este cliente Prisma tambien usa el adapter de Neon para hablar con PostgreSQL.
@@ -12,6 +13,11 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await stackServerApp.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   const { id: rawId } = await params;
   const id = Number(rawId);
 
@@ -36,6 +42,11 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const user = await stackServerApp.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   const { id: rawId } = await params;
   const id = Number(rawId);
 
